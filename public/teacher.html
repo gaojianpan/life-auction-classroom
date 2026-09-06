@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>教师中心 · 人生系统装配厂</title>
+<link rel="stylesheet" href="/style.css"><script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="brand">TEACHER CENTER / 教师中心<small>创建课堂 · 实时控制 · 历史统计</small></div>
+    <a class="badge" href="/" target="_blank">学生首页 ↗</a>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="create" onclick="tab('create')">创建课堂</button>
+    <button class="tab" data-tab="open" onclick="tab('open')">进入已有课堂</button>
+    <button class="tab" data-tab="history" onclick="tab('history')">历史统计</button>
+  </div>
+
+  <section id="pane-create" class="card">
+    <div class="kicker">NEW CLASSROOM</div><h1>创建一场新的拍卖</h1>
+    <div class="grid2">
+      <div><label class="muted small">课堂名称</label><input id="newTitle" placeholder="例如：机械2501班 · 第3周"></div>
+      <div><label class="muted small">本课堂教师口令</label><input id="newTeacherPin" type="password" placeholder="至少4位，用于稍后重新进入"></div>
+    </div>
+    <div style="margin-top:12px"><label class="muted small">网站管理员口令</label><input id="newAdminPin" type="password" placeholder="部署时设置的 ADMIN_PIN"></div>
+    <button style="margin-top:14px" onclick="createClassroom()">创建课堂并进入控制台</button>
+  </section>
+
+  <section id="pane-open" class="card hidden">
+    <div class="kicker">REOPEN CLASSROOM</div><h1>进入已有课堂</h1>
+    <div class="grid2">
+      <input id="openCode" inputmode="numeric" maxlength="6" placeholder="6位课堂码">
+      <input id="openPin" type="password" placeholder="本课堂教师口令">
+    </div>
+    <button style="margin-top:14px" onclick="openClassroom()">进入控制台</button>
+  </section>
+
+  <section id="pane-history" class="card hidden">
+    <div class="spread"><div><div class="kicker">HISTORY</div><h1>历届课堂统计</h1></div><button class="secondary" onclick="loadHistory()">刷新</button></div>
+    <div class="row" style="margin-bottom:14px">
+      <input id="historyAdminPin" type="password" placeholder="管理员口令" style="max-width:320px">
+      <button onclick="historyAuth()">验证并读取</button>
+    </div>
+    <div id="historyAggregate" class="hidden" style="margin-bottom:16px"></div>
+    <div id="historyList" class="history"><p class="muted">验证管理员口令后显示历史课堂。</p></div>
+    <div id="historyDetail" style="margin-top:18px"></div>
+  </section>
+
+  <main id="control" class="hidden" style="margin-top:16px">
+    <section class="card">
+      <div class="grid">
+        <div>
+          <div class="kicker">LIVE CLASSROOM</div><h1 id="controlTitle"></h1>
+          <div class="codebox" id="controlCode"></div>
+          <p class="muted">学生只需访问永久网址并输入课堂码；也可以直接扫右侧二维码。</p>
+          <div class="row">
+            <input id="joinUrl" readonly style="flex:1">
+            <button class="secondary" onclick="copyJoin()">复制加入链接</button>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <img id="qr" class="qr" alt="课堂二维码">
+          <div class="muted small" style="margin-top:8px">扫码后课堂码自动填入</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid3" style="margin:16px 0">
+      <div class="stat"><div class="muted">已加入学生</div><div class="n" id="studentCount">0</div></div>
+      <div class="stat"><div class="muted">在线学生</div><div class="n green" id="onlineCount">0</div></div>
+      <div class="stat"><div class="muted">已完成拍卖</div><div class="n" id="done">0 / 15</div></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="spread"><h2>拍卖控制</h2><div class="timer" id="timer">--</div></div>
+        <div id="current" class="notice">尚未开始。</div>
+        <div class="row" style="margin-top:14px">
+          <input id="seconds" value="12" inputmode="numeric" style="width:100px">
+          <button onclick="startFirst()">开始/重拍当前</button>
+          <button class="warn" onclick="next()">成交并下一件</button>
+          <button class="secondary" onclick="closeA()">立即成交</button>
+        </div>
+        <hr>
+        <div class="row">
+          <button onclick="startExchange()">开启60秒交换市场</button>
+          <button class="secondary" onclick="reflection()">进入课堂讨论</button>
+          <button class="danger" onclick="endClassroom()">结束并归档</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>当前竞价 TOP</h2><div id="bids" class="bidlist"><p class="muted">等待竞价</p></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <div class="spread"><h2>15件人生模块</h2><span class="badge">点击任意件可直接开拍</span></div>
+      <div id="items" class="grid3"></div>
+    </section>
+
+    <section id="liveReport" class="card" style="margin-top:16px">
+      <div class="kicker">LIVE DEBRIEF</div><h2>课堂讨论提示</h2>
+      <div class="notice">
+        ① 为什么愿意为它花这么多人生币？　② 你主动放弃了什么？为什么？<br>
+        ③ 如果人生币换成真正的“时间、精力、机会”，你还会这样选吗？<br>
+        ④ 同样1000人生币，为什么全班装配出了不同的人生？
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/teacher.js"></script>
+</body></html>
