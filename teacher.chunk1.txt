@@ -1,0 +1,61 @@
+
+const socket=io();let S=null,currentCode=null,adminAuthed=false;const reportCache={};const $=id=>document.getElementById(id);
+socket.on("roomState",s=>{if(currentCode&&s.code===currentCode){S=s;renderControl()}});
+
+function tab(name){
+  ["create","open","history"].forEach(x=>$("pane-"+x).classList.toggle("hidden",x!==name));
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
+}
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function secLeft(end){return Math.max(0,Math.ceil((end-Date.now())/1000))}
+function seconds(){return Math.max(5,Number($("seconds").value)||12)}
+
+function createClassroom(){
+  socket.emit("createClassroom",{
+    adminPin:$("newAdminPin").value,title:$("newTitle").value,teacherPin:$("newTeacherPin").value
+  },r=>{if(!r.ok)return alert(r.error);enterControl(r.code,r.title,r.state)})
+}
+function openClassroom(){
+  socket.emit("openTeacherClassroom",{code:$("openCode").value,pin:$("openPin").value},r=>{
+    if(!r.ok)return alert(r.error);enterControl(r.code,r.title,r.state)
+  })
+}
+function enterControl(code,title,state){
+  currentCode=code;S=state;$("control").classList.remove("hidden");
+  $("controlTitle").textContent=title;$("controlCode").textContent=code;
+  $("joinUrl").value=location.origin+"/?code="+code;$("qr").src="/api/qr/"+code+".png";
+  window.scrollTo({top:$("control").offsetTop-10,behavior:"smooth"});renderControl()
+}
+function copyJoin(){navigator.clipboard.writeText($("joinUrl").value).then(()=>alert("加入链接已复制"))}
+
+function renderControl(){
+  if(!S)return;
+  $("controlTitle").textContent=S.title;$("controlCode").textContent=S.code;
+  $("studentCount").textContent=S.students.length;
+  $("onlineCount").textContent=S.students.filter(x=>x.connected).length;
+  $("done").textContent=`${S.history.length} / 15`;
+  const a=S.currentAuction;
+  $("current").innerHTML=a?`<b>${a.item.icon} ${a.item.title}</b><br><span class="muted">${esc(a.item.desc)}</span>`
+    :`当前阶段：<b>${({lobby:"待机",auction:"轮间等待",exchange:"交换市场",reflection:"课堂讨论",ended:"已归档"})[S.mode]||S.mode}</b>`;
+  $("bids").innerHTML=a&&a.bids.length?a.bids.map(b=>`<div class="bidrow ${b.winning?'win':''}"><div>#${b.rank}</div><div><b>${esc(b.name)}</b></div><div>${b.amount}</div></div>`).join("")
+    :`<p class="muted">等待竞价</p>`;
+  $("items").innerHTML=S.items.map((it,i)=>`<div class="stat"><div style="font-size:30px">${it.icon}</div><b>${it.id}. ${it.title}</b><div class="muted small" style="min-height:42px;margin:7px 0">${it.hook}</div><button class="secondary" onclick="startAt(${i})">开拍</button></div>`).join("");
+}
+function startFirst(){startAt(S?.currentIndex>=0?S.currentIndex:0)}
+function startAt(index){socket.emit("startItem",{index,seconds:seconds()},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function next(){socket.emit("nextItem",{seconds:seconds()},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function closeA(){socket.emit("closeAuction",{},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function startExchange(){socket.emit("startExchange",{seconds:60},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function reflection(){socket.emit("startReflection",{},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function endClassroom(){
+  if(!confirm("结束后学生不能再加入或操作，但历史统计会永久保留。确定归档？"))return;
+  socket.emit("endClassroom",{},r=>{if(!r.ok)alert(r.error||"归档失败");else alert("课堂已归档，可在“历史统计”中查看。")})
+}
+
+function historyAuth(){
+  socket.emit("adminAuth",{pin:$("historyAdminPin").value},r=>{
+    if(!r.ok)return alert(r.error);adminAuthed=true;loadHistory()
+  })
+}
+function loadHistory(){
+  if(!adminAuthed)return ale
