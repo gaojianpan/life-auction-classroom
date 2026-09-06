@@ -1,0 +1,94 @@
+amount < a.item.base)
+        return cb?.({ok:false,error:"出价低于起拍价"});
+      if (amount > s.coins)
+        return cb?.({ok:false,error:"人生币余额不足"});
+      const prior = a.bids[sid]?.amount || 0;
+      if (amount <= prior)
+        return cb?.({ok:false,error:"新出价必须高于你自己的上一口价"});
+      customText = cleanText(customText,30);
+      if (a.item.custom && !customText)
+        return cb?.({ok:false,error:"空白人生模块需要填写你想要的内容"});
+      a.bids[sid] = {
+        studentId:sid,name:s.name,amount,ts:Date.now(),customText
+      };
+      await queuePersist(room);
+      cb?.({ok:true});
+      emitRoom(room);
+    } catch { cb?.({ok:false,error:"出价失败"}); }
+  });
+
+  socket.on("startExchange", async ({seconds}, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      if (room.state.currentAuction) await closeAuction(room);
+      room.state.mode = "exchange";
+      room.state.exchangeEnd = Date.now() + Math.max(30,Math.min(300,Number(seconds)||60))*1000;
+      await queuePersist(room); emitRoom(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"操作失败"}); }
+  });
+
+  socket.on("startReflection", async (_, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      if (room.state.currentAuction) await closeAuction(room);
+      room.state.mode = "reflection";
+      room.state.exchangeEnd = null;
+      await queuePersist(room); emitRoom(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"操作失败"}); }
+  });
+
+  socket.on("endClassroom", async (_, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      if (room.state.currentAuction) await closeAuction(room);
+      room.state.mode = "ended";
+      room.state.exchangeEnd = null;
+      room.state.endedAt = Date.now();
+      await queuePersist(room); emitRoom(room);
+      cb?.({ok:true,report:buildReport(room.state,{code:room.code,title:room.title})});
+    } catch { cb?.({ok:false,error:"归档失败"}); }
+  });
+
+  socket.on("listItem", async ({copyId,price}, cb) => {
+    try {
+      const room = await getRoom(socket.data.studentCode);
+      const sid = socket.data.studentId;
+      if (!room || room.state.mode !== "exchange") return cb?.({ok:false,error:"当前不在交换阶段"});
+      const s = room.state.students[sid];
+      if (!s) return cb?.({ok:false,error:"学生身份失效"});
+      const item = s.inventory.find(x=>x.copyId===copyId);
+      if (!item) return cb?.({ok:false,error:"你没有这件拍卖品"});
+      if (room.state.listings.some(x=>x.copyId===copyId))
+        return cb?.({ok:false,error:"这件物品已经挂牌"});
+      price = Math.floor(Number(price)/50)*50;
+      if (!Number.isFinite(price) || price<0 || price>1000)
+        return cb?.({ok:false,error:"请输入0~1000之间、50的倍数"});
+      room.state.listings.push({
+        listingId:room.state.nextListingId++, sellerId:sid, sellerName:s.name,
+        copyId, item, price, createdAt:Date.now()
+      });
+      await queuePersist(room); emitRoom(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"挂牌失败"}); }
+  });
+
+  socket.on("cancelListing", async ({listingId}, cb) => {
+    try {
+      const room = await getRoom(socket.data.studentCode);
+      const sid = socket.data.studentId;
+      if (!room) return cb?.({ok:false});
+      const idx = room.state.listings.findIndex(x=>x.listingId===listingId && x.sellerId===sid);
+      if (idx<0) return cb?.({ok:false,error:"无法撤销"});
+      room.state.listings.splice(idx,1);
+      await queuePersist(room); emitRoom(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"撤销失败"}); }
+  });
+
+  socket.on("buyListing", async ({listingId}, cb) => {
+    try {
+      const room = await getRoom(socket.data.studentCode);
+      const sid = socket.data.studentId;
+      if (!room || room.state.mode!=="exchange") return cb?.({ok:false,error:"当前不在交换阶段"});
+      const buy
