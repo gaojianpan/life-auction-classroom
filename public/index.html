@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>人生系统装配厂</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="brand">LIFE SYSTEM / 人生系统装配厂<small>机械专业 · 人生拍卖会</small></div>
+    <a class="badge" href="/teacher.html">教师入口 →</a>
+  </div>
+
+  <section id="join" class="card hero">
+    <div class="kicker">PUBLIC CLASSROOM</div>
+    <h1>1000 枚人生币<br>你会装配怎样的一生？</h1>
+    <p class="muted">无需注册。输入课堂码和昵称，即可从任意网络加入。</p>
+    <div style="max-width:460px;margin:22px auto 0" class="grid2">
+      <input id="code" inputmode="numeric" maxlength="6" placeholder="6位课堂码">
+      <input id="name" maxlength="12" placeholder="课堂昵称">
+    </div>
+    <button style="margin-top:12px;min-width:220px" onclick="join()">进入拍卖场</button>
+  </section>
+
+  <main id="app" class="hidden">
+    <div class="spread" style="margin-bottom:14px">
+      <div><div class="kicker">CLASSROOM</div><h2 id="classTitle" style="margin:4px 0 0"></h2></div>
+      <span class="badge">课堂码 <b id="classCode"></b></span>
+    </div>
+
+    <div class="grid3" style="margin-bottom:16px">
+      <div class="stat"><div class="muted">人生币余额</div><div class="n amber" id="coins">1000</div></div>
+      <div class="stat"><div class="muted">已装配模块</div><div class="n" id="invCount">0</div></div>
+      <div class="stat"><div class="muted">当前阶段</div><div class="n" id="modeName">等待</div></div>
+    </div>
+
+    <section id="lobby" class="card hero">
+      <div class="heroIcon">⚙️</div><h2>系统待机</h2>
+      <p class="muted">老师启动拍卖后，本页会自动更新，无需刷新。</p>
+    </section>
+
+    <section id="between" class="card hero hidden">
+      <div class="heroIcon">✅</div><h2>本轮已成交</h2>
+      <p class="muted">等待老师发布下一件人生模块。</p>
+    </section>
+
+    <section id="auction" class="hidden">
+      <div class="grid">
+        <div class="card">
+          <div class="spread">
+            <div><div class="kicker">LOT <span id="lotNo"></span> / 15 · 名额 2</div><div class="timer" id="timer">--</div></div>
+            <div class="heroIcon" id="icon">🔧</div>
+          </div>
+          <h1 class="auctionTitle" id="title"></h1>
+          <p class="muted" id="desc"></p><span class="hook" id="hook"></span>
+          <hr>
+          <div class="spread">
+            <div><div class="muted">当前入围线</div><div class="price" id="cutoff">0</div></div>
+            <div style="text-align:right"><div class="muted">我的最高出价</div><div class="price" id="myBid">0</div></div>
+          </div>
+          <div id="customBox" class="hidden" style="margin-top:12px">
+            <input id="customText" maxlength="30" placeholder="写下你想要的那一样东西">
+          </div>
+          <div class="row" style="margin-top:16px">
+            <button onclick="quickBid(50)">+50 出价</button>
+            <button class="warn" onclick="quickBid(100)">+100 出价</button>
+            <input id="bidAmount" inputmode="numeric" placeholder="自定义金额" style="flex:1;min-width:150px">
+            <button class="secondary" onclick="manualBid()">确认</button>
+          </div>
+          <p class="muted small" style="margin:12px 0 0">倒计时结束时 TOP 2 成交，各自支付自己的最终出价。</p>
+        </div>
+        <div class="card">
+          <div class="spread"><h2>实时竞价</h2><span class="badge">TOP 2</span></div>
+          <div class="bidlist" id="bidList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="exchange" class="hidden">
+      <div class="grid">
+        <div class="card">
+          <div class="spread"><h2>🔁 人生二手交易市场</h2><div class="timer" id="exchangeTimer">60</div></div>
+          <p class="muted">把后悔的选择挂牌出售，或买走别人愿意放弃的模块。</p>
+          <h3>我的模块</h3><div id="myInventory"></div>
+        </div>
+        <div class="card"><h2>全班挂牌</h2><div class="market" id="market"></div></div>
+      </div>
+    </section>
+
+    <section id="reflection" class="card hidden">
+      <div class="hero"><div class="heroIcon">🔒</div><h1>人生系统已锁定</h1>
+      <p class="muted">看看你最终留下了什么，以及你主动放弃了什么。</p></div>
+      <h2>我的最终配置</h2><div class="inventory" id="finalInventory"></div>
+      <div class="notice" style="margin-top:18px">
+        思考：<b>为什么选择它？为什么放弃另一样？如果1000人生币换成真正的时间、精力与机会，你还会这样配置吗？</b>
+      </div>
+    </section>
+
+    <section id="ended" class="card hero hidden">
+      <div class="heroIcon">📦</div><h1>课堂已结束并归档</h1>
+      <p class="muted">感谢参与。你的最终选择已经成为本班统计的一部分。</p>
+      <div class="inventory" id="endedInventory" style="justify-content:center"></div>
+    </section>
+  </main>
+</div>
+<script src="/student.js"></script>
+</body></html>
