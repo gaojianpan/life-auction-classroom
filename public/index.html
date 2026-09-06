@@ -2,32 +2,54 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>人生系统装配厂</title>
+<title>人生模拟拍卖平台 · 广安理工学院数字化思政教育平台</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/gait-logo.css">
+<link rel="stylesheet" href="/gait-campus-day.css">
+<link rel="stylesheet" href="/gait-library-hall.css">
+<link rel="stylesheet" href="/gait-theme.css">
 <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body class="gait-student">
 <div class="container">
-  <div class="topbar">
-    <div class="brand">LIFE SYSTEM / 人生系统装配厂<small>人生总工程师</small></div>
+  <div class="topbar gait-topbar">
+    <div class="gait-identity">
+      <div class="gait-logo" aria-hidden="true"></div>
+      <div>
+        <div class="gait-schoolline">广安理工学院 <span>GUANG'AN INSTITUTE OF TECHNOLOGY</span></div>
+        <div class="gait-platform">数字化思政教育平台<small>马克思主义学院 · <span class="gait-module">人生模拟拍卖平台</span></small></div>
+      </div>
+    </div>
     <a class="badge" href="/teacher.html">教师入口 →</a>
   </div>
 
+  <div class="gait-spiritbar">
+    <span>梦想从学习开始 · 事业靠本领成就</span>
+    <span>川渝理工名校</span>
+    <span>名校支援 · 名师担纲 · 名企合作</span>
+  </div>
+
   <section id="join" class="card hero">
-    <div class="kicker">PUBLIC CLASSROOM</div>
+    <div class="kicker">MARXISM SCHOOL · LIFE AUCTION LAB</div>
+    <div class="gait-module-chip">人生总工程师 · 人生模拟拍卖平台</div>
     <h1>1000 枚人生币<br>你会如何配置自己的一生？</h1>
-    <p class="muted">无需注册。输入课堂码、昵称和学号，即可从任意网络加入。</p>
+    <p class="muted">广安理工学院数字化思政教育平台互动教学模块。无需注册，输入课堂码、姓名和学号即可加入。</p>
     <div style="max-width:760px;margin:22px auto 0" class="grid3">
       <input id="code" inputmode="numeric" maxlength="6" placeholder="6位课堂码">
       <input id="name" maxlength="12" placeholder="课堂昵称 / 姓名">
       <input id="studentNo" maxlength="24" placeholder="学号" autocomplete="off">
     </div>
-    <button style="margin-top:12px;min-width:220px" onclick="join()">进入拍卖场</button>
+    <button style="margin-top:12px;min-width:220px" onclick="join()">进入人生模拟拍卖场</button>
+    <div class="gait-values">
+      <span class="gait-value">立德树人</span>
+      <span class="gait-value">小而精 · 高起点</span>
+      <span class="gait-value">应用型 · 理工类</span>
+    </div>
   </section>
 
   <main id="app" class="hidden">
     <div class="spread" style="margin-bottom:14px">
-      <div><div class="kicker">CLASSROOM</div><h2 id="classTitle" style="margin:4px 0 0"></h2></div>
+      <div><div class="kicker">LIFE AUCTION CLASSROOM</div><h2 id="classTitle" style="margin:4px 0 0"></h2></div>
       <div class="row"><span class="badge" id="studentIdentity"></span><span class="badge">课堂码 <b id="classCode"></b></span></div>
     </div>
 
@@ -106,6 +128,11 @@
       <div class="inventory" id="endedInventory" style="justify-content:center"></div>
     </section>
   </main>
+
+  <div class="gait-footer">
+    <span><b>广安理工学院 · 马克思主义学院</b> / 数字化思政教育平台</span>
+    <span>小而精 · 高起点 · 应用型 · 理工类</span>
+  </div>
 </div>
 <script src="/student.js"></script>
 </body></html>
