@@ -25,16 +25,15 @@ function auctionView(room) {
   const a = room.state.currentAuction;
   if (!a) return null;
   const sorted = Object.values(a.bids || {}).sort((x,y)=>y.amount-x.amount || x.ts-y.ts);
+  const highest = sorted.length ? sorted[0].amount : a.item.base;
   return {
     item:a.item,
     timerEnd:room.state.timerEnd,
     bids:sorted.map((b,i)=>({
       studentId:b.studentId, name:b.name, studentNo:b.studentNo || "", amount:b.amount,
-      rank:i+1, winning:i<a.item.supply
+      rank:i+1, winning:b.amount===highest
     })),
-    cutoff: sorted.length >= a.item.supply
-      ? sorted[a.item.supply-1].amount
-      : Math.max(0, a.item.base-50)
+    cutoff:highest
   };
 }
 
@@ -76,20 +75,21 @@ async function closeAuction(room) {
   const a = room.state.currentAuction;
   if (!a) return;
   const sorted = Object.values(a.bids || {}).sort((x,y)=>y.amount-x.amount || x.ts-y.ts);
-  const winners = sorted.slice(0, a.item.supply);
+  const clearingPrice = sorted.length ? sorted[0].amount : null;
+  const winners = clearingPrice === null ? [] : sorted.filter(x=>x.amount===clearingPrice);
   const settled = [];
 
   for (const w of winners) {
     const s = room.state.students[w.studentId];
-    if (!s || s.coins < w.amount) continue;
-    s.coins -= w.amount;
+    if (!s || s.coins < clearingPrice) continue;
+    s.coins -= clearingPrice;
     const copy = {
       copyId:id(), itemId:a.item.id, title:a.item.title, icon:a.item.icon,
-      paid:w.amount, customText:w.customText || ""
+      paid:clearingPrice, customText:w.customText || ""
     };
     s.inventory.push(copy);
     settled.push({
-      studentId:s.id, name:s.name, studentNo:s.studentNo || "", amount:w.amount,
+      studentId:s.id, name:s.name, studentNo:s.studentNo || "", amount:clearingPrice,
       copyId:copy.copyId, customText:copy.customText
     });
   }
@@ -97,6 +97,7 @@ async function closeAuction(room) {
   room.state.history.push({
     round:room.state.history.length+1,
     itemId:a.item.id, title:a.item.title, icon:a.item.icon,
+    clearingPrice:clearingPrice,
     winners:settled, closedAt:Date.now()
   });
   room.state.currentAuction = null;
