@@ -9,7 +9,7 @@ amount < a.item.base)
       if (a.item.custom && !customText)
         return cb?.({ok:false,error:"空白人生模块需要填写你想要的内容"});
       a.bids[sid] = {
-        studentId:sid,name:s.name,amount,ts:Date.now(),customText
+        studentId:sid,name:s.name,studentNo:s.studentNo || "",amount,ts:Date.now(),customText
       };
       await queuePersist(room);
       cb?.({ok:true});
@@ -67,7 +67,7 @@ amount < a.item.base)
       if (!Number.isFinite(price) || price<0 || price>1000)
         return cb?.({ok:false,error:"请输入0~1000之间、50的倍数"});
       room.state.listings.push({
-        listingId:room.state.nextListingId++, sellerId:sid, sellerName:s.name,
+        listingId:room.state.nextListingId++, sellerId:sid, sellerName:s.name, sellerStudentNo:s.studentNo || "",
         copyId, item, price, createdAt:Date.now()
       });
       await queuePersist(room); emitRoom(room); cb?.({ok:true});
