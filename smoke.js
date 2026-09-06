@@ -31,6 +31,13 @@ async function waitFor(fn, timeout = 8000, step = 100) {
   throw new Error('waitFor timeout');
 }
 
+async function assertHttp(url, path, expectedText) {
+  const res = await fetch(url + path);
+  if (!res.ok) throw new Error(`HTTP ${path} returned ${res.status}`);
+  const text = await res.text();
+  if (expectedText && !text.includes(expectedText)) throw new Error(`HTTP ${path} missing expected text`);
+}
+
 async function runSmokeTest() {
   const port = process.env.PORT || 10000;
   const url = `http://127.0.0.1:${port}`;
@@ -41,6 +48,10 @@ async function runSmokeTest() {
   let sellerState = null;
   let buyerState = null;
   try {
+    await assertHttp(url, '/healthz', 'ok');
+    await assertHttp(url, '/', '人生系统装配厂');
+    await assertHttp(url, '/teacher.html', '教师中心');
+
     teacher = await connect(url);
     seller = await connect(url);
     buyer = await connect(url);
@@ -85,7 +96,7 @@ async function runSmokeTest() {
     }
 
     await pool.query('DELETE FROM classrooms WHERE code=$1', [code]);
-    console.log(`SMOKE_TEST_PASS code=${code} create/join/bid/settle/exchange/archive/delete`);
+    console.log(`SMOKE_TEST_PASS code=${code} http/health/student/teacher/socket/create/join/bid/settle/exchange/archive/delete`);
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
