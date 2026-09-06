@@ -16,7 +16,7 @@ function queuePersist(room) {
 
 function studentPublic(s) {
   return {
-    id:s.id, name:s.name, coins:s.coins, inventory:s.inventory,
+    id:s.id, name:s.name, studentNo:s.studentNo || "", coins:s.coins, inventory:s.inventory,
     connected:!!s.connected, joinedAt:s.joinedAt
   };
 }
@@ -29,7 +29,7 @@ function auctionView(room) {
     item:a.item,
     timerEnd:room.state.timerEnd,
     bids:sorted.map((b,i)=>({
-      studentId:b.studentId, name:b.name, amount:b.amount,
+      studentId:b.studentId, name:b.name, studentNo:b.studentNo || "", amount:b.amount,
       rank:i+1, winning:i<a.item.supply
     })),
     cutoff: sorted.length >= a.item.supply
@@ -89,7 +89,7 @@ async function closeAuction(room) {
     };
     s.inventory.push(copy);
     settled.push({
-      studentId:s.id, name:s.name, amount:w.amount,
+      studentId:s.id, name:s.name, studentNo:s.studentNo || "", amount:w.amount,
       copyId:copy.copyId, customText:copy.customText
     });
   }
