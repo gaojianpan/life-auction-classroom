@@ -1,0 +1,68 @@
+er = room.state.students[sid];
+      const idx = room.state.listings.findIndex(x=>x.listingId===listingId);
+      if (!buyer || idx<0) return cb?.({ok:false,error:"该物品已被买走"});
+      const l = room.state.listings[idx];
+      if (l.sellerId===sid) return cb?.({ok:false,error:"不能购买自己的物品"});
+      const seller = room.state.students[l.sellerId];
+      if (!seller || buyer.coins<l.price) return cb?.({ok:false,error:"人生币余额不足"});
+      const invIdx = seller.inventory.findIndex(x=>x.copyId===l.copyId);
+      if (invIdx<0) {
+        room.state.listings.splice(idx,1);
+        await queuePersist(room); emitRoom(room);
+        return cb?.({ok:false,error:"该物品已失效"});
+      }
+      const [item] = seller.inventory.splice(invIdx,1);
+      buyer.inventory.push(item);
+      buyer.coins -= l.price; seller.coins += l.price;
+      room.state.listings.splice(idx,1);
+      await queuePersist(room); emitRoom(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"购买失败"}); }
+  });
+
+  socket.on("getHistory", async ({limit}, cb) => {
+    if (!socket.data.admin) return cb?.({ok:false,error:"请先验证管理员口令"});
+    try {
+      const data = await historyList(limit);
+      cb?.({ok:true,rows:data.rows,aggregate:data.aggregate});
+    } catch { cb?.({ok:false,error:"读取历史失败"}); }
+  });
+
+  socket.on("getClassroomReport", async ({code}, cb) => {
+    if (!socket.data.admin) return cb?.({ok:false,error:"请先验证管理员口令"});
+    try {
+      const r = await pool.query(
+        "SELECT code,title,state,created_at,ended_at FROM classrooms WHERE code=$1",
+        [normalizeCode(code)]
+      );
+      if (!r.rowCount) return cb?.({ok:false,error:"课堂不存在"});
+      const row = r.rows[0];
+      const st = typeof row.state==="string"?JSON.parse(row.state):row.state;
+      cb?.({ok:true,report:buildReport(st,{
+        code:row.code,title:row.title,createdAt:row.created_at,endedAt:row.ended_at
+      })});
+    } catch { cb?.({ok:false,error:"读取报告失败"}); }
+  });
+
+  socket.on("disconnect", async () => {
+    try {
+      const code = socket.data.studentCode;
+      const sid = socket.data.studentId;
+      if (!code || !sid) return;
+      const room = await getRoom(code);
+      if (room?.state.students[sid]) {
+        room.state.students[sid].connected = false;
+        queuePersist(room);
+        emitRoom(room);
+      }
+    } catch {}
+  });
+});
+
+initDb().then(()=>{
+  server.listen(PORT,"0.0.0.0",()=>{
+    console.log(`Life Auction Formal v2 running on :${PORT}`);
+  });
+}).catch(e=>{
+  console.error("Database init failed",e);
+  process.exit(1);
+});
