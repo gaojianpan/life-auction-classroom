@@ -1,5 +1,5 @@
 
-const socket=io();let S=null,currentCode=null,adminAuthed=false;const reportCache={};const $=id=>document.getElementById(id);
+const socket=io();let S=null,currentCode=null,adminAuthed=false;const reportCache={};const priceDrafts={};const $=id=>document.getElementById(id);
 socket.on("roomState",s=>{if(currentCode&&s.code===currentCode){S=s;renderControl()}});
 
 function tab(name){
@@ -9,6 +9,12 @@ function tab(name){
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function secLeft(end){return Math.max(0,Math.ceil((end-Date.now())/1000))}
 function seconds(){return Math.max(5,Number($("seconds").value)||12)}
+function priceFor(index){
+  const raw=priceDrafts[index];
+  if(raw===undefined||raw===null||String(raw).trim()==="")return 100;
+  const n=Math.floor(Number(raw));
+  return Number.isFinite(n)?Math.max(0,Math.min(1000,n)):100;
+}
 
 function createClassroom(){
   socket.emit("createClassroom",{
@@ -43,11 +49,11 @@ function renderControl(){
     .slice().sort((a,b)=>String(a.studentNo||"").localeCompare(String(b.studentNo||""),"zh-CN",{numeric:true}))
     .map(s=>`<div class="listing"><div style="min-width:120px"><b>${esc(s.studentNo||"未填学号")}</b><div>${esc(s.name)}</div></div><div class="${s.connected?'green':'muted'}">${s.connected?'● 在线':'○ 离线'}</div><div><span class="muted small">余额</span><br><b>${s.coins}</b></div><div style="flex:1"><span class="muted small">已拍得模块</span><br>${s.inventory.length?s.inventory.map(i=>`${i.icon} ${esc(i.customText||i.title)}`).join("、"):`<span class="muted">暂无</span>`}</div></div>`).join("")
     :`<p class="muted">尚无学生加入。</p>`;
-  $("items").innerHTML=S.items.map((it,i)=>`<div class="stat"><div style="font-size:30px">${it.icon}</div><b>${it.id}. ${it.title}</b><div class="muted small" style="min-height:42px;margin:7px 0">${it.hook}</div><button class="secondary" onclick="startAt(${i})">开拍</button></div>`).join("");
+  $("items").innerHTML=S.items.map((it,i)=>`<div class="stat"><div style="font-size:30px">${it.icon}</div><b>${it.id}. ${it.title}</b><div class="muted small" style="min-height:42px;margin:7px 0">${it.hook}</div><div class="muted small" style="margin-bottom:4px">起拍价（留空默认100）</div><input id="base_${i}" inputmode="numeric" min="0" max="1000" placeholder="100" value="${esc(priceDrafts[i]??"")}" oninput="priceDrafts[${i}]=this.value" style="margin-bottom:8px"><button class="secondary" onclick="startAt(${i})">开拍</button></div>`).join("");
 }
 function startFirst(){startAt(S?.currentIndex>=0?S.currentIndex:0)}
-function startAt(index){socket.emit("startItem",{index,seconds:seconds()},r=>{if(!r.ok)alert(r.error||"操作失败")})}
-function next(){socket.emit("nextItem",{seconds:seconds()},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function startAt(index){socket.emit("startItem",{index,seconds:seconds(),basePrice:priceFor(index)},r=>{if(!r.ok)alert(r.error||"操作失败")})}
+function next(){const nextIndex=(S?.currentIndex??-1)+1;socket.emit("nextItem",{seconds:seconds(),basePrice:priceFor(nextIndex)},r=>{if(!r.ok)alert(r.error||"操作失败")})}
 function closeA(){socket.emit("closeAuction",{},r=>{if(!r.ok)alert(r.error||"操作失败")})}
 function startExchange(){socket.emit("startExchange",{seconds:60},r=>{if(!r.ok)alert(r.error||"操作失败")})}
 function reflection(){socket.emit("startReflection",{},r=>{if(!r.ok)alert(r.error||"操作失败")})}
