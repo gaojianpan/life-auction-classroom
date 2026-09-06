@@ -51,13 +51,33 @@ async function runSmokeTest() {
   try {
     await assertHttp(url, '/healthz', 'ok');
     const studentPage = await assertHttp(url, '/', '你会如何配置自己的一生？');
-    if (!studentPage.includes('人生总工程师')) throw new Error('homepage subtitle not updated');
+    if (!studentPage.includes('广安理工学院') || !studentPage.includes('数字化思政教育平台') || !studentPage.includes('人生模拟拍卖平台')) {
+      throw new Error('student school branding missing');
+    }
+    if (!studentPage.includes('人生总工程师')) throw new Error('homepage module subtitle missing');
     if (!studentPage.includes('id="studentNo"')) throw new Error('student page missing student number input');
+    if (!studentPage.includes('/gait-theme.css') || !studentPage.includes('/gait-campus-day.css')) throw new Error('student theme assets missing');
+
+    const logoCss = await assertHttp(url, '/gait-logo.css', 'data:image/webp;base64');
+    const dayCss = await assertHttp(url, '/gait-campus-day.css', 'data:image/webp;base64');
+    const libraryCss = await assertHttp(url, '/gait-library-hall.css', 'data:image/webp;base64');
+    const themeCss = await assertHttp(url, '/gait-theme.css', '--gait-magenta:#8115a5');
+    if (!themeCss.includes('--gait-violet:#3c2e90') || !themeCss.includes('body.gait-student') || !themeCss.includes('body.gait-teacher')) {
+      throw new Error('Guangan color/background theme incomplete');
+    }
+    if (!logoCss.includes('--gait-logo') || !dayCss.includes('--gait-campus-day') || !libraryCss.includes('--gait-library-hall')) {
+      throw new Error('school photo CSS variables missing');
+    }
+
     const studentJs = await assertHttp(url, '/student.js', 'lifeAuctionJoinCode');
     if (!studentJs.includes('"123456"') || !studentJs.includes('"张三"') || !studentJs.includes('"0123456789"')) {
       throw new Error('student join defaults missing');
     }
     const teacherPage = await assertHttp(url, '/teacher.html', '教师中心');
+    if (!teacherPage.includes('广安理工学院') || !teacherPage.includes('马克思主义学院') || !teacherPage.includes('人生模拟拍卖平台')) {
+      throw new Error('teacher school branding missing');
+    }
+    if (!teacherPage.includes('/gait-campus-night.css') || !teacherPage.includes('/gait-theme.css')) throw new Error('teacher theme assets missing');
     if (!teacherPage.includes('id="studentRoster"')) throw new Error('teacher page missing student roster');
     const teacherJs = await assertHttp(url, '/teacher.js', 'priceDrafts');
     if (!teacherJs.includes('basePrice:priceFor(index)') || !teacherJs.includes('留空默认100')) {
@@ -66,7 +86,7 @@ async function runSmokeTest() {
     if (!teacherJs.includes('deleteReport') || !teacherJs.includes('deleteClassroom')) {
       throw new Error('teacher report delete control missing');
     }
-    if (!teacherJs.includes('教师口令')) throw new Error('teacher report PIN display missing');
+    if (!teacherJs.includes('PASSWORD')) throw new Error('teacher report PASSWORD display missing');
 
     teacher = await connect(url);
     seller = await connect(url);
@@ -135,7 +155,7 @@ async function runSmokeTest() {
     const deleted = await pool.query('SELECT 1 FROM classrooms WHERE code=$1', [code]);
     if (deleted.rowCount) throw new Error('admin report deletion did not remove classroom');
     code = null;
-    console.log('SMOKE_TEST_PASS defaults/customBase/uniform350/roster/archive/teacherPin/adminDelete');
+    console.log('SMOKE_TEST_PASS gaitBrand/themePhotos/defaults/customBase/uniform350/roster/archive/teacherPin/adminDelete');
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
