@@ -71,23 +71,23 @@
     }
   });
 
-  socket.on("startItem", async ({index,seconds}, cb) => {
+  socket.on("startItem", async ({index,seconds,basePrice}, cb) => {
     try {
       const room = await getRoom(socket.data.teacherCode);
       if (!room) return cb?.({ok:false});
-      await startItem(room,index,seconds);
+      await startItem(room,index,seconds,basePrice);
       cb?.({ok:true});
     } catch(e){ cb?.({ok:false,error:e.message||"操作失败"}); }
   });
 
-  socket.on("nextItem", async ({seconds}, cb) => {
+  socket.on("nextItem", async ({seconds,basePrice}, cb) => {
     try {
       const room = await getRoom(socket.data.teacherCode);
       if (!room) return cb?.({ok:false});
       if (room.state.currentAuction) await closeAuction(room);
       const next = room.state.currentIndex + 1;
       if (next >= ITEMS.length) return cb?.({ok:false,error:"15件拍卖品已全部完成"});
-      await startItem(room,next,seconds);
+      await startItem(room,next,seconds,basePrice);
       cb?.({ok:true});
     } catch(e){ cb?.({ok:false,error:e.message||"操作失败"}); }
   });
@@ -109,5 +109,5 @@
       const a = room.state.currentAuction;
       if (!s || !a || room.state.mode !== "auction")
         return cb?.({ok:false,error:"当前不能出价"});
-      amount = Math.floor(Number(amount)/50)*50;
+      amount = Math.floor(Number(amount));
       if (!Number.isFinite(amount) || 
