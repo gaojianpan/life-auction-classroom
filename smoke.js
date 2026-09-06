@@ -36,6 +36,7 @@ async function assertHttp(url, path, expectedText) {
   if (!res.ok) throw new Error(`HTTP ${path} returned ${res.status}`);
   const text = await res.text();
   if (expectedText && !text.includes(expectedText)) throw new Error(`HTTP ${path} missing expected text`);
+  return text;
 }
 
 async function runSmokeTest() {
@@ -49,7 +50,8 @@ async function runSmokeTest() {
   let buyerState = null;
   try {
     await assertHttp(url, '/healthz', 'ok');
-    await assertHttp(url, '/', '人生系统装配厂');
+    const studentPage = await assertHttp(url, '/', '人生系统装配厂');
+    if (!studentPage.includes('id="studentNo"')) throw new Error('student page missing student number input');
     await assertHttp(url, '/teacher.html', '教师中心');
 
     teacher = await connect(url);
@@ -65,25 +67,34 @@ async function runSmokeTest() {
     });
     code = created.code;
 
-    await emitAck(seller, 'joinClassroom', { code, name: 'smoke-seller', clientKey: `smoke-seller-${Date.now()}` });
-    await emitAck(buyer, 'joinClassroom', { code, name: 'smoke-buyer', clientKey: `smoke-buyer-${Date.now()}` });
+    await emitAck(seller, 'joinClassroom', {
+      code, name: 'smoke-seller', studentNo: 'TEST20260001', clientKey: `smoke-seller-${Date.now()}`
+    });
+    await emitAck(buyer, 'joinClassroom', {
+      code, name: 'smoke-buyer', studentNo: 'TEST20260002', clientKey: `smoke-buyer-${Date.now()}`
+    });
+
+    await waitFor(() => sellerState?.students?.some(x => x.studentNo === 'TEST20260001'));
+    await waitFor(() => buyerState?.students?.some(x => x.studentNo === 'TEST20260002'));
 
     await emitAck(teacher, 'startItem', { index: 0, seconds: 30 });
     await emitAck(seller, 'bid', { amount: 100, customText: '' });
+    await waitFor(() => sellerState?.currentAuction?.bids?.some(x => x.studentNo === 'TEST20260001'));
     await emitAck(teacher, 'closeAuction', {});
 
     const sellerItem = await waitFor(() => {
-      const me = sellerState?.students?.find(x => x.name === 'smoke-seller');
+      const me = sellerState?.students?.find(x => x.studentNo === 'TEST20260001');
       return me?.inventory?.[0] || null;
     });
 
     await emitAck(teacher, 'startExchange', { seconds: 120 });
     await emitAck(seller, 'listItem', { copyId: sellerItem.copyId, price: 50 });
     const listing = await waitFor(() => sellerState?.listings?.find(x => x.copyId === sellerItem.copyId));
+    if (listing.sellerStudentNo !== 'TEST20260001') throw new Error('listing missing seller student number');
     await emitAck(buyer, 'buyListing', { listingId: listing.listingId });
 
     await waitFor(() => {
-      const me = buyerState?.students?.find(x => x.name === 'smoke-buyer');
+      const me = buyerState?.students?.find(x => x.studentNo === 'TEST20260002');
       return me?.inventory?.some(x => x.copyId === sellerItem.copyId);
     });
 
@@ -96,7 +107,7 @@ async function runSmokeTest() {
     }
 
     await pool.query('DELETE FROM classrooms WHERE code=$1', [code]);
-    console.log(`SMOKE_TEST_PASS code=${code} http/health/student/teacher/socket/create/join/bid/settle/exchange/archive/delete`);
+    console.log(`SMOKE_TEST_PASS code=${code} http/studentNo/socket/create/join/bid/settle/exchange/archive/delete`);
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
