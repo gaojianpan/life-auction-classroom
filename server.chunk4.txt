@@ -33,31 +33,38 @@
     }
   });
 
-  socket.on("joinClassroom", async ({code,name,clientKey}, cb) => {
+  socket.on("joinClassroom", async ({code,name,studentNo,clientKey}, cb) => {
     try {
       const room = await getRoom(code);
       if (!room) return cb?.({ok:false,error:"课堂码不存在"});
       if (room.state.mode === "ended") return cb?.({ok:false,error:"该课堂已结束归档"});
       name = cleanText(name,12);
+      studentNo = cleanText(studentNo,24).replace(/\s+/g, "");
       clientKey = cleanText(clientKey,80);
-      if (!name) return cb?.({ok:false,error:"请输入课堂昵称"});
+      if (!name) return cb?.({ok:false,error:"请输入课堂昵称 / 姓名"});
+      if (!studentNo) return cb?.({ok:false,error:"请输入学号"});
+      if (!/^[A-Za-z0-9_-]+$/.test(studentNo))
+        return cb?.({ok:false,error:"学号仅支持字母、数字、下划线和短横线"});
       if (!clientKey) return cb?.({ok:false,error:"浏览器身份生成失败，请刷新重试"});
 
       let s = Object.values(room.state.students).find(x=>x.clientKey===clientKey);
+      const duplicate = Object.values(room.state.students).find(x=>x.studentNo===studentNo && (!s || x.id!==s.id));
+      if (duplicate) return cb?.({ok:false,error:"该学号已加入本课堂，请检查学号；如需换设备请联系教师处理"});
+
       if (!s) {
         s = {
-          id:id(), clientKey, name, coins:1000, inventory:[],
+          id:id(), clientKey, name, studentNo, coins:1000, inventory:[],
           connected:true, joinedAt:Date.now()
         };
         room.state.students[s.id] = s;
       } else {
-        s.name = name; s.connected = true;
+        s.name = name; s.studentNo = studentNo; s.connected = true;
       }
       socket.data.studentId = s.id;
       socket.data.studentCode = room.code;
       socket.join(roomChannel(room.code));
       await queuePersist(room);
-      cb?.({ok:true,studentId:s.id,code:room.code,title:room.title});
+      cb?.({ok:true,studentId:s.id,studentNo:s.studentNo,code:room.code,title:room.title});
       emitRoom(room);
     } catch (e) {
       console.error(e); cb?.({ok:false,error:"加入课堂失败"});
