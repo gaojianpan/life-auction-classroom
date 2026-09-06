@@ -13,9 +13,13 @@ function applyBranding(path){
   if(!fs.existsSync(path)) return;
   let s=fs.readFileSync(path,'utf8');
   s=s.replace(/\s*<span>名校支援 · 名师担纲 · 名企合作<\/span>/g,'');
+  s=s.replaceAll('梦想从学习开始 · 事业靠本领成就','广安理工学院');
+  s=s.replace(/\s*<span class="gait-value">立德树人<\/span>/g,'');
+  s=s.replaceAll(' · 立德树人','');
+  s=s.replaceAll('立德树人','');
   s=s.replace(/<span class="gait-value">小而精 · 高起点<\/span>\s*<span class="gait-value">应用型 · 理工类<\/span>/g,'<span class="gait-value">求真致理，鼎新砺工</span>');
   s=s.replaceAll('小而精 · 高起点 · 应用型 · 理工类','求真致理，鼎新砺工');
-  s=s.replaceAll('人生模拟拍卖平台','模拟人生拍卖器');
+  s=s.replaceAll('模拟人生拍卖器','人生模拟拍卖平台');
   s=s.replaceAll('数字化思政教育平台','春风思政');
   s=s.replaceAll('广安理工学院春风思政','广安理工学院 · 春风思政');
   fs.writeFileSync(path,s);
@@ -39,9 +43,12 @@ if(fs.existsSync(logoCssPath)){
 if(fs.existsSync('smoke.js')){
   let smoke=fs.readFileSync('smoke.js','utf8');
   smoke=smoke.replaceAll("'数字化思政教育平台'","'春风思政'");
-  smoke=smoke.replaceAll("'人生模拟拍卖平台'","'模拟人生拍卖器'");
+  smoke=smoke.replaceAll("'模拟人生拍卖器'","'人生模拟拍卖平台'");
+  smoke=smoke.replaceAll("'梦想从学习开始 · 事业靠本领成就'","'广安理工学院'");
   smoke=smoke.replaceAll("'名校支援 · 名师担纲 · 名企合作',\n      ",'');
+  smoke=smoke.replaceAll("'立德树人', ",'');
+  smoke=smoke.replaceAll("'立德树人',",'');
   smoke=smoke.replace("'小而精 · 高起点', '应用型 · 理工类',","'求真致理，鼎新砺工',");
-  smoke=smoke.replace("const logoCss = await assertHttp(url, '/gait-logo.css', 'data:image/webp;base64');","const logoCss = await assertHttp(url, '/gait-logo.css', '/gait-logo.webp');\n    const logoRes = await fetch(url + '/gait-logo.webp');\n    if (!logoRes.ok || (await logoRes.arrayBuffer()).byteLength < 1000) throw new Error('school logo asset missing');");
+  smoke=smoke.replace("const logoCss = await assertHttp(url, '/gait-logo.css', 'data:image/webp;base64');","const logoCss = await assertHttp(url, '/gait-logo.css', '/gait-logo.webp');\n    const logoRes = await fetch(url + '/gait-logo.webp');\n    if (!logoRes.ok || (await logoRes.arrayBuffer()).byteLength < 10000) throw new Error('school logo asset missing');");
   fs.writeFileSync('smoke.js',smoke);
 }
