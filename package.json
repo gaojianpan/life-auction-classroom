@@ -1,12 +1,12 @@
 {
   "name": "life-auction-formal",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "人生系统装配厂：永久网址 + 课堂码 + 实时拍卖 + 历史统计",
-  "main": "server.js",
+  "main": "bootstrap.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "NODE_ENV=development node server.js"
+    "start": "node bootstrap.js",
+    "dev": "NODE_ENV=development node bootstrap.js"
   },
   "engines": {
     "node": ">=20"
@@ -15,6 +15,7 @@
     "express": "^4.21.2",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
   }
 }
