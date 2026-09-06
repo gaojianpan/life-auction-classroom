@@ -1,0 +1,66 @@
+rt("请先验证管理员口令");
+  socket.emit("getHistory",{limit:100},r=>{
+    if(!r.ok)return alert(r.error);
+    renderAggregate(r.aggregate);
+    $("historyList").innerHTML=r.rows.length?r.rows.map(x=>`
+      <div class="historyrow">
+        <div><b>${esc(x.title)}</b><div class="muted small">${new Date(x.createdAt).toLocaleString()} · 课堂码 ${x.code} · ${x.status==="ended"?"已归档":"进行/未归档"}</div></div>
+        <div><span class="badge">${x.participants}人</span></div>
+        <div><button class="secondary" onclick="report('${x.code}')">查看统计</button></div>
+      </div>`).join(""):`<p class="muted">暂无历史课堂。</p>`;
+  })
+}
+
+function renderAggregate(a){
+  if(!a){$("historyAggregate").classList.add("hidden");return}
+  $("historyAggregate").classList.remove("hidden");
+  $("historyAggregate").innerHTML=`
+    <div class="grid3">
+      <div class="stat"><div class="muted">历史课堂</div><div class="n">${a.classrooms}</div><div class="small muted">已归档 ${a.archived}</div></div>
+      <div class="stat"><div class="muted">累计参与学生</div><div class="n green">${a.participants}</div></div>
+      <div class="stat"><div class="muted">累计成交模块</div><div class="n amber">${a.totalSold}</div></div>
+    </div>
+    ${a.topItems?.length?`<div class="notice" style="margin-top:12px"><b>跨班总体高价选择：</b> ${a.topItems.map((x,i)=>`${i+1}. ${x.icon}${esc(x.title)} ${x.avg}`).join("　")}</div>`:""}`;
+}
+
+function report(code){
+  socket.emit("getClassroomReport",{code},r=>{
+    if(!r.ok)return alert(r.error);
+    renderReport(r.report)
+  })
+}
+function renderReport(r){
+  reportCache[r.code]=r;
+  const max=Math.max(1,...r.itemStats.map(x=>x.avg));
+  $("historyDetail").innerHTML=`
+    <div class="card" style="padding:16px">
+      <div class="spread"><div><div class="kicker">REPORT ${r.code}</div><h2>${esc(r.title)}</h2></div>
+      <button class="secondary" onclick="downloadCsv('${r.code}')">导出CSV</button></div>
+      <div class="grid3">
+        <div class="stat"><div class="muted">参与人数</div><div class="n">${r.participants}</div></div>
+        <div class="stat"><div class="muted">成交模块</div><div class="n">${r.totalSold}</div></div>
+        <div class="stat"><div class="muted">人均剩余人生币</div><div class="n amber">${r.avgRemainingCoins}</div></div>
+      </div>
+      <h3 style="margin-top:18px">班级价值排序（按平均成交价）</h3>
+      ${r.itemStats.filter(x=>x.sold>0).map((x,i)=>`
+        <div style="margin:12px 0">
+          <div class="spread small"><span>#${i+1} ${x.icon} <b>${esc(x.title)}</b> · ${x.sold}次成交</span><span>${x.avg} / 最高${x.max}</span></div>
+          <div class="bar"><i style="width:${Math.round(x.avg/max*100)}%"></i></div>
+        </div>`).join("")||'<p class="muted">本课堂暂无成交。</p>'}
+      ${r.customTexts?.length?`<h3>空白人生模块写了什么</h3><div class="inventory">${r.customTexts.map(x=>`<span class="chip">❓ ${esc(x)}</span>`).join("")}</div>`:""}
+    </div>`;
+}
+function downloadCsv(code){
+  const r=reportCache[code];
+  if(!r)return alert("报告尚未加载");
+  const lines=[["课堂码","课堂名称","拍卖品","成交次数","平均成交价","最高成交价"],
+    ...r.itemStats.map(x=>[r.code,r.title,x.title,x.sold,x.avg,x.max])];
+  const csv="\ufeff"+lines.map(row=>row.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=`人生拍卖_${r.code}_${r.title}.csv`;a.click();URL.revokeObjectURL(a.href);
+}
+setInterval(()=>{
+  if(S?.currentAuction&&S.timerEnd)$("timer").textContent=secLeft(S.timerEnd)+"s";
+  else if(S?.mode==="exchange"&&S.exchangeEnd)$("timer").textContent="交换 "+secLeft(S.exchangeEnd)+"s";
+  else $("timer").textContent="--";
+},200);
