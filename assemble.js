@@ -40,7 +40,7 @@ if(fs.existsSync('smoke.js')){
   let smoke=fs.readFileSync('smoke.js','utf8');
   smoke=smoke.replaceAll("'数字化思政教育平台'","'春风思政'");
   smoke=smoke.replaceAll("'人生模拟拍卖平台'","'模拟人生拍卖器'");
-  smoke=smoke.replace("'名校支援 · 名师担纲 · 名企合作',\n      ",'');
+  smoke=smoke.replaceAll("'名校支援 · 名师担纲 · 名企合作',\n      ",'');
   smoke=smoke.replace("'小而精 · 高起点', '应用型 · 理工类',","'求真致理，鼎新砺工',");
   smoke=smoke.replace("const logoCss = await assertHttp(url, '/gait-logo.css', 'data:image/webp;base64');","const logoCss = await assertHttp(url, '/gait-logo.css', '/gait-logo.webp');\n    const logoRes = await fetch(url + '/gait-logo.webp');\n    if (!logoRes.ok || (await logoRes.arrayBuffer()).byteLength < 1000) throw new Error('school logo asset missing');");
   fs.writeFileSync('smoke.js',smoke);
