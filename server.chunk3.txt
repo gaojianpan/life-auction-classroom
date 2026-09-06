@@ -107,4 +107,5 @@ io.on("connection", (socket) => {
       if (teacherPin.length < 4) return cb?.({ok:false,error:"课堂教师口令至少4位"});
       const code = await uniqueCode();
       const state = newState(title);
+      state.teacherPinEnc = encryptTeacherPin(teacherPin);
       
