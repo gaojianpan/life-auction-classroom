@@ -1,0 +1,128 @@
+;
+  return room;
+}
+
+function queuePersist(room) {
+  const snapshot = JSON.stringify(room.state);
+  const ended = room.state.endedAt ? new Date(room.state.endedAt) : null;
+  room.persistChain = room.persistChain
+    .catch(()=>{})
+    .then(() => pool.query(
+      "UPDATE classrooms SET state=$1::jsonb,updated_at=NOW(),ended_at=$2 WHERE id=$3",
+      [snapshot, ended, room.id]
+    ));
+  return room.persistChain;
+}
+
+function studentPublic(s) {
+  return {
+    id:s.id, name:s.name, coins:s.coins, inventory:s.inventory,
+    connected:!!s.connected, joinedAt:s.joinedAt
+  };
+}
+
+function auctionView(room) {
+  const a = room.state.currentAuction;
+  if (!a) return null;
+  const sorted = Object.values(a.bids || {}).sort((x,y)=>y.amount-x.amount || x.ts-y.ts);
+  return {
+    item:a.item,
+    timerEnd:room.state.timerEnd,
+    bids:sorted.map((b,i)=>({
+      studentId:b.studentId, name:b.name, amount:b.amount,
+      rank:i+1, winning:i<a.item.supply
+    })),
+    cutoff: sorted.length >= a.item.supply
+      ? sorted[a.item.supply-1].amount
+      : Math.max(0, a.item.base-50)
+  };
+}
+
+function snapshot(room) {
+  return {
+    code:room.code,
+    title:room.title,
+    mode:room.state.mode,
+    items:ITEMS,
+    currentIndex:room.state.currentIndex,
+    currentAuction:auctionView(room),
+    timerEnd:room.state.timerEnd,
+    exchangeEnd:room.state.exchangeEnd,
+    students:Object.values(room.state.students).map(studentPublic),
+    history:room.state.history,
+    listings:room.state.listings,
+    endedAt:room.state.endedAt
+  };
+}
+
+function emitRoom(room) {
+  io.to(roomChannel(room.code)).emit("roomState", snapshot(room));
+}
+
+async function startItem(room, index, seconds=12) {
+  if (room.state.mode === "ended") throw new Error("课堂已归档");
+  index = Number(index);
+  if (index < 0 || index >= ITEMS.length) throw new Error("拍卖品不存在");
+  if (room.state.currentAuction) await closeAuction(room);
+  room.state.mode = "auction";
+  room.state.currentIndex = index;
+  room.state.currentAuction = { item: ITEMS[index], bids: {} };
+  room.state.timerEnd = Date.now() + Math.max(5, Math.min(120, Number(seconds)||12))*1000;
+  await queuePersist(room);
+  emitRoom(room);
+}
+
+async function closeAuction(room) {
+  const a = room.state.currentAuction;
+  if (!a) return;
+  const sorted = Object.values(a.bids || {}).sort((x,y)=>y.amount-x.amount || x.ts-y.ts);
+  const winners = sorted.slice(0, a.item.supply);
+  const settled = [];
+
+  for (const w of winners) {
+    const s = room.state.students[w.studentId];
+    if (!s || s.coins < w.amount) continue;
+    s.coins -= w.amount;
+    const copy = {
+      copyId:id(), itemId:a.item.id, title:a.item.title, icon:a.item.icon,
+      paid:w.amount, customText:w.customText || ""
+    };
+    s.inventory.push(copy);
+    settled.push({
+      studentId:s.id, name:s.name, amount:w.amount,
+      copyId:copy.copyId, customText:copy.customText
+    });
+  }
+
+  room.state.history.push({
+    round:room.state.history.length+1,
+    itemId:a.item.id, title:a.item.title, icon:a.item.icon,
+    winners:settled, closedAt:Date.now()
+  });
+  room.state.currentAuction = null;
+  room.state.timerEnd = null;
+  await queuePersist(room);
+  emitRoom(room);
+}
+
+async function reconcile(room) {
+  const now = Date.now();
+  if (room.state.currentAuction && room.state.timerEnd && now >= room.state.timerEnd) {
+    await closeAuction(room);
+  }
+  if (room.state.mode === "exchange" && room.state.exchangeEnd && now >= room.state.exchangeEnd) {
+    room.state.mode = "reflection";
+    room.state.exchangeEnd = null;
+    await queuePersist(room);
+  }
+}
+
+function buildReport(roomState, meta={}) {
+  const itemMap = new Map(ITEMS.map(x=>[x.id, {
+    itemId:x.id, title:x.title, icon:x.icon, sold:0, total:0, max:0, customTexts:[]
+  }]));
+  for (const h of roomState.history || []) {
+    const stat = itemMap.get(h.itemId);
+    if (!stat) continue;
+    for (const w of h.winners || []) {
+      
