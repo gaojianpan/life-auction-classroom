@@ -37,9 +37,11 @@ er = room.state.students[sid];
       if (!r.rowCount) return cb?.({ok:false,error:"课堂不存在"});
       const row = r.rows[0];
       const st = typeof row.state==="string"?JSON.parse(row.state):row.state;
-      cb?.({ok:true,report:buildReport(st,{
+      const report = buildReport(st,{
         code:row.code,title:row.title,createdAt:row.created_at,endedAt:row.ended_at
-      })});
+      });
+      report.teacherPin = decryptTeacherPin(st.teacherPinEnc);
+      cb?.({ok:true,report});
     } catch { cb?.({ok:false,error:"读取报告失败"}); }
   });
 
