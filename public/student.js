@@ -50,7 +50,7 @@ function render(){
     const a=S.currentAuction,it=a.item;
     $("lotNo").textContent=it.id;$("icon").textContent=it.icon;$("title").textContent=it.title;
     $("desc").textContent=it.desc;$("hook").textContent=it.hook;
-    $("cutoff").textContent=Math.max(it.base,a.cutoff||0);
+    $("cutoff").textContent=Math.max(it.base,a.cutoff||it.base);
     $("myBid").textContent=a.bids.find(x=>x.studentId===myStudentId)?.amount||0;
     show("customBox",!!it.custom);
     $("bidList").innerHTML=a.bids.length?a.bids.map(b=>`
@@ -70,8 +70,12 @@ function invHtml(arr){
 function targetBid(step){
   const a=S.currentAuction,m=me();if(!a||!m)return 0;
   const mine=a.bids.find(x=>x.studentId===myStudentId)?.amount||0;
-  const threshold=Math.max(a.item.base,(a.cutoff||a.item.base-50)+50);
-  return Math.max(mine+step,threshold);
+  const current=Math.max(a.item.base,a.cutoff||a.item.base);
+  return Math.max(mine+step,current+step);
+}
+function matchPrice(){
+  const a=S?.currentAuction;if(!a)return;
+  submitBid(Math.max(a.item.base,a.cutoff||a.item.base));
 }
 function quickBid(step){submitBid(targetBid(step))}
 function manualBid(){submitBid(Number($("bidAmount").value))}
