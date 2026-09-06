@@ -6,7 +6,7 @@ rt("请先验证管理员口令");
       <div class="historyrow">
         <div><b>${esc(x.title)}</b><div class="muted small">${new Date(x.createdAt).toLocaleString()} · 课堂码 ${x.code} · ${x.status==="ended"?"已归档":"进行/未归档"}</div></div>
         <div><span class="badge">${x.participants}人</span></div>
-        <div><button class="secondary" onclick="report('${x.code}')">查看统计</button></div>
+        <div class="row"><button class="secondary" onclick="report('${x.code}')">查看统计</button><button class="danger" onclick="deleteReport('${x.code}',${JSON.stringify(x.title)})">删除</button></div>
       </div>`).join(""):`<p class="muted">暂无历史课堂。</p>`;
   })
 }
@@ -29,13 +29,24 @@ function report(code){
     renderReport(r.report)
   })
 }
+function deleteReport(code,title){
+  if(!adminAuthed)return alert("请先验证管理员口令");
+  if(!confirm(`确定永久删除课堂“${title}”（课堂码 ${code}）及其全部统计数据吗？此操作不可恢复。`))return;
+  socket.emit("deleteClassroom",{code},r=>{
+    if(!r.ok)return alert(r.error||"删除失败");
+    delete reportCache[code];
+    $("historyDetail").innerHTML="";
+    if(currentCode===code){currentCode=null;S=null;$("control").classList.add("hidden")}
+    loadHistory();
+  })
+}
 function renderReport(r){
   reportCache[r.code]=r;
   const max=Math.max(1,...r.itemStats.map(x=>x.avg));
   $("historyDetail").innerHTML=`
     <div class="card" style="padding:16px">
       <div class="spread"><div><div class="kicker">REPORT ${r.code}</div><h2>${esc(r.title)}</h2></div>
-      <button class="secondary" onclick="downloadCsv('${r.code}')">导出CSV</button></div>
+      <div class="row"><button class="secondary" onclick="downloadCsv('${r.code}')">导出CSV</button><button class="danger" onclick="deleteReport('${r.code}',${JSON.stringify(r.title)})">删除此课堂</button></div></div>
       <div class="grid3">
         <div class="stat"><div class="muted">参与人数</div><div class="n">${r.participants}</div></div>
         <div class="stat"><div class="muted">成交模块</div><div class="n">${r.totalSold}</div></div>
