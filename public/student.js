@@ -8,7 +8,12 @@ function browserKey(){
   return k;
 }
 const params=new URLSearchParams(location.search);
-if(params.get("code")) $("code").value=params.get("code");
+const savedCode=localStorage.getItem("lifeAuctionJoinCode");
+const savedName=localStorage.getItem("lifeAuctionJoinName");
+const savedStudentNo=localStorage.getItem("lifeAuctionJoinStudentNo");
+$("code").value=params.get("code")||savedCode||"123456";
+$("name").value=savedName||"张三";
+$("studentNo").value=savedStudentNo||"0123456789";
 
 socket.on("roomState",s=>{S=s;render()});
 
@@ -19,6 +24,9 @@ function join(){
   if(!studentNo)return alert("请输入学号");
   socket.emit("joinClassroom",{code,name,studentNo,clientKey:browserKey()},r=>{
     if(!r.ok)return alert(r.error);
+    localStorage.setItem("lifeAuctionJoinCode",r.code||code);
+    localStorage.setItem("lifeAuctionJoinName",name);
+    localStorage.setItem("lifeAuctionJoinStudentNo",studentNo);
     myStudentId=r.studentId;
     $("join").classList.add("hidden");$("app").classList.remove("hidden");
     $("classTitle").textContent=r.title;$("classCode").textContent=r.code;
