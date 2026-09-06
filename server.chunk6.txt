@@ -43,6 +43,22 @@ er = room.state.students[sid];
     } catch { cb?.({ok:false,error:"读取报告失败"}); }
   });
 
+  socket.on("deleteClassroom", async ({code}, cb) => {
+    if (!socket.data.admin) return cb?.({ok:false,error:"请先验证管理员口令"});
+    try {
+      code = normalizeCode(code);
+      if (!code) return cb?.({ok:false,error:"课堂码无效"});
+      const r = await pool.query("DELETE FROM classrooms WHERE code=$1 RETURNING code,title", [code]);
+      if (!r.rowCount) return cb?.({ok:false,error:"课堂不存在或已删除"});
+      rooms.delete(code);
+      io.to(roomChannel(code)).emit("classroomDeleted", {code});
+      cb?.({ok:true,code,title:r.rows[0].title});
+    } catch (e) {
+      console.error("deleteClassroom", e);
+      cb?.({ok:false,error:"删除课堂失败"});
+    }
+  });
+
   socket.on("disconnect", async () => {
     try {
       const code = socket.data.studentCode;
