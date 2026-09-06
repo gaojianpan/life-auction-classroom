@@ -53,8 +53,16 @@ async function runSmokeTest() {
     const studentPage = await assertHttp(url, '/', '你会如何配置自己的一生？');
     if (!studentPage.includes('人生总工程师')) throw new Error('homepage subtitle not updated');
     if (!studentPage.includes('id="studentNo"')) throw new Error('student page missing student number input');
+    const studentJs = await assertHttp(url, '/student.js', 'lifeAuctionJoinCode');
+    if (!studentJs.includes('"123456"') || !studentJs.includes('"张三"') || !studentJs.includes('"0123456789"')) {
+      throw new Error('student join defaults missing');
+    }
     const teacherPage = await assertHttp(url, '/teacher.html', '教师中心');
     if (!teacherPage.includes('id="studentRoster"')) throw new Error('teacher page missing student roster');
+    const teacherJs = await assertHttp(url, '/teacher.js', 'priceDrafts');
+    if (!teacherJs.includes('basePrice:priceFor(index)') || !teacherJs.includes('留空默认100')) {
+      throw new Error('teacher custom starting price UI missing');
+    }
 
     teacher = await connect(url);
     seller = await connect(url);
@@ -79,7 +87,8 @@ async function runSmokeTest() {
     await waitFor(() => sellerState?.students?.some(x => x.studentNo === 'TEST20260001'));
     await waitFor(() => buyerState?.students?.some(x => x.studentNo === 'TEST20260002'));
 
-    await emitAck(teacher, 'startItem', { index: 2, seconds: 30 });
+    await emitAck(teacher, 'startItem', { index: 2, seconds: 30, basePrice: 275 });
+    await waitFor(() => sellerState?.currentAuction?.item?.base === 275);
     await emitAck(seller, 'bid', { amount: 350, customText: '' });
     await emitAck(buyer, 'bid', { amount: 350, customText: '' });
     await waitFor(() => sellerState?.currentAuction?.cutoff === 350 && sellerState.currentAuction.bids.filter(x => x.winning).length === 2);
@@ -116,7 +125,7 @@ async function runSmokeTest() {
     if (!round || round.clearingPrice !== 350 || round.winners?.length !== 2) throw new Error('uniform-price history persistence failed');
 
     await pool.query('DELETE FROM classrooms WHERE code=$1', [code]);
-    console.log(`SMOKE_TEST_PASS code=${code} homepage/renames/studentNo/uniform350/multiBuyer/roster/exchange/archive/delete`);
+    console.log(`SMOKE_TEST_PASS code=${code} defaults/localStorage/customBase275/uniform350/roster/exchange/archive/delete`);
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
