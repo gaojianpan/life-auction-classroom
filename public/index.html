@@ -9,13 +9,13 @@
 <body>
 <div class="container">
   <div class="topbar">
-    <div class="brand">LIFE SYSTEM / 人生系统装配厂<small>机械专业 · 人生拍卖会</small></div>
+    <div class="brand">LIFE SYSTEM / 人生系统装配厂<small>人生总工程师</small></div>
     <a class="badge" href="/teacher.html">教师入口 →</a>
   </div>
 
   <section id="join" class="card hero">
     <div class="kicker">PUBLIC CLASSROOM</div>
-    <h1>1000 枚人生币<br>你会装配怎样的一生？</h1>
+    <h1>1000 枚人生币<br>你会如何配置自己的一生？</h1>
     <p class="muted">无需注册。输入课堂码、昵称和学号，即可从任意网络加入。</p>
     <div style="max-width:760px;margin:22px auto 0" class="grid3">
       <input id="code" inputmode="numeric" maxlength="6" placeholder="6位课堂码">
@@ -51,15 +51,15 @@
       <div class="grid">
         <div class="card">
           <div class="spread">
-            <div><div class="kicker">LOT <span id="lotNo"></span> / 15 · 名额 2</div><div class="timer" id="timer">--</div></div>
+            <div><div class="kicker">LOT <span id="lotNo"></span> / 15 · 名额不限</div><div class="timer" id="timer">--</div></div>
             <div class="heroIcon" id="icon">🔧</div>
           </div>
           <h1 class="auctionTitle" id="title"></h1>
           <p class="muted" id="desc"></p><span class="hook" id="hook"></span>
           <hr>
           <div class="spread">
-            <div><div class="muted">当前入围线</div><div class="price" id="cutoff">0</div></div>
-            <div style="text-align:right"><div class="muted">我的最高出价</div><div class="price" id="myBid">0</div></div>
+            <div><div class="muted">当前统一成交价</div><div class="price" id="cutoff">0</div></div>
+            <div style="text-align:right"><div class="muted">我的最高愿付价</div><div class="price" id="myBid">0</div></div>
           </div>
           <div id="customBox" class="hidden" style="margin-top:12px">
             <input id="customText" maxlength="30" placeholder="写下你想要的那一样东西">
@@ -67,13 +67,14 @@
           <div class="row" style="margin-top:16px">
             <button onclick="quickBid(50)">+50 出价</button>
             <button class="warn" onclick="quickBid(100)">+100 出价</button>
+            <button class="secondary" onclick="matchPrice()">按当前价跟价</button>
             <input id="bidAmount" inputmode="numeric" placeholder="自定义金额" style="flex:1;min-width:150px">
             <button class="secondary" onclick="manualBid()">确认</button>
           </div>
-          <p class="muted small" style="margin:12px 0 0">倒计时结束时 TOP 2 成交，各自支付自己的最终出价。</p>
+          <p class="muted small" style="margin:12px 0 0">倒计时结束时，以全场最高有效出价作为统一成交价；所有把自己的最高愿付价报到该价格的同学都成交，并各自支付同一价格。</p>
         </div>
         <div class="card">
-          <div class="spread"><h2>实时竞价</h2><span class="badge">TOP 2</span></div>
+          <div class="spread"><h2>实时竞价</h2><span class="badge">最高价参与者</span></div>
           <div class="bidlist" id="bidList"></div>
         </div>
       </div>
