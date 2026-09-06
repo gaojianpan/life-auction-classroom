@@ -1,4 +1,3 @@
-
 const socket = io();
 let S=null, myStudentId=null;
 const $=id=>document.getElementById(id);
@@ -14,12 +13,16 @@ if(params.get("code")) $("code").value=params.get("code");
 socket.on("roomState",s=>{S=s;render()});
 
 function join(){
-  const code=$("code").value.trim(),name=$("name").value.trim();
-  socket.emit("joinClassroom",{code,name,clientKey:browserKey()},r=>{
+  const code=$("code").value.trim(),name=$("name").value.trim(),studentNo=$("studentNo").value.trim();
+  if(!code)return alert("请输入6位课堂码");
+  if(!name)return alert("请输入课堂昵称 / 姓名");
+  if(!studentNo)return alert("请输入学号");
+  socket.emit("joinClassroom",{code,name,studentNo,clientKey:browserKey()},r=>{
     if(!r.ok)return alert(r.error);
     myStudentId=r.studentId;
     $("join").classList.add("hidden");$("app").classList.remove("hidden");
     $("classTitle").textContent=r.title;$("classCode").textContent=r.code;
+    $("studentIdentity").textContent=`${name} · 学号 ${studentNo}`;
   })
 }
 function me(){return S?.students?.find(x=>x.id===myStudentId)}
@@ -27,11 +30,13 @@ function show(id,yes){$(id).classList.toggle("hidden",!yes)}
 function modeText(m){return ({lobby:"待机",auction:"拍卖",exchange:"交换",reflection:"讨论",ended:"归档"})[m]||m}
 function secLeft(end){return Math.max(0,Math.ceil((end-Date.now())/1000))}
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function personLabel(name,studentNo){return `${esc(name)}${studentNo?` <span class="muted small">· ${esc(studentNo)}</span>`:""}`}
 
 function render(){
   if(!S||!myStudentId)return;
   const m=me();if(!m)return;
   $("classTitle").textContent=S.title;$("classCode").textContent=S.code;
+  $("studentIdentity").textContent=`${m.name}${m.studentNo?` · 学号 ${m.studentNo}`:""}`;
   $("coins").textContent=m.coins;$("invCount").textContent=m.inventory.length;$("modeName").textContent=modeText(S.mode);
 
   show("lobby",S.mode==="lobby");
@@ -50,14 +55,12 @@ function render(){
     show("customBox",!!it.custom);
     $("bidList").innerHTML=a.bids.length?a.bids.map(b=>`
       <div class="bidrow ${b.winning?'win':''}">
-        <div><b>#${b.rank}</b></div><div>${esc(b.name)} ${b.studentId===myStudentId?'（我）':''}</div>
+        <div><b>#${b.rank}</b></div><div>${personLabel(b.name,b.studentNo)} ${b.studentId===myStudentId?'（我）':''}</div>
         <div class="${b.winning?'green':''}"><b>${b.amount}</b></div>
       </div>`).join(""):`<p class="muted">还没有人出价</p>`;
   }
   if(S.mode==="exchange"){renderInventory(m);renderMarket()}
-  if(S.mode==="reflection"){
-    $("finalInventory").innerHTML=invHtml(m.inventory);
-  }
+  if(S.mode==="reflection"){$("finalInventory").innerHTML=invHtml(m.inventory)}
   if(S.mode==="ended")$("endedInventory").innerHTML=invHtml(m.inventory);
 }
 function invHtml(arr){
@@ -72,9 +75,7 @@ function targetBid(step){
 }
 function quickBid(step){submitBid(targetBid(step))}
 function manualBid(){submitBid(Number($("bidAmount").value))}
-function submitBid(amount){
-  socket.emit("bid",{amount,customText:$("customText")?.value||""},r=>{if(!r.ok)alert(r.error)})
-}
+function submitBid(amount){socket.emit("bid",{amount,customText:$("customText")?.value||""},r=>{if(!r.ok)alert(r.error)})}
 function renderInventory(m){
   $("myInventory").innerHTML=m.inventory.length?m.inventory.map(i=>{
     const listed=S.listings.find(x=>x.copyId===i.copyId);
@@ -84,7 +85,7 @@ function renderInventory(m){
 }
 function renderMarket(){
   const rows=S.listings.filter(x=>x.sellerId!==myStudentId);
-  $("market").innerHTML=rows.length?rows.map(l=>`<div class="listing"><div>${l.item.icon} <b>${esc(l.item.customText||l.item.title)}</b><div class="muted">卖家：${esc(l.sellerName)}</div></div><div class="amber"><b>${l.price}</b></div><button onclick="buy(${l.listingId})">购买</button></div>`).join(""):`<p class="muted">暂时没有同学挂牌。</p>`;
+  $("market").innerHTML=rows.length?rows.map(l=>`<div class="listing"><div>${l.item.icon} <b>${esc(l.item.customText||l.item.title)}</b><div class="muted">卖家：${esc(l.sellerName)}${l.sellerStudentNo?` · ${esc(l.sellerStudentNo)}`:""}</div></div><div class="amber"><b>${l.price}</b></div><button onclick="buy(${l.listingId})">购买</button></div>`).join(""):`<p class="muted">暂时没有同学挂牌。</p>`;
 }
 function listItem(copyId){socket.emit("listItem",{copyId,price:Number($("p_"+copyId).value)},r=>{if(!r.ok)alert(r.error)})}
 function cancelListing(listingId){socket.emit("cancelListing",{listingId},r=>{if(!r.ok)alert(r.error)})}
