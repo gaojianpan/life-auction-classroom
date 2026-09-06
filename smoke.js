@@ -39,6 +39,12 @@ async function assertHttp(url, path, expectedText) {
   return text;
 }
 
+function assertIncludesAll(text, values, label) {
+  for (const value of values) {
+    if (!text.includes(value)) throw new Error(`${label} missing: ${value}`);
+  }
+}
+
 async function runSmokeTest() {
   const port = process.env.PORT || 10000;
   const url = `http://127.0.0.1:${port}`;
@@ -51,21 +57,27 @@ async function runSmokeTest() {
   try {
     await assertHttp(url, '/healthz', 'ok');
     const studentPage = await assertHttp(url, '/', '你会如何配置自己的一生？');
-    if (!studentPage.includes('广安理工学院') || !studentPage.includes('数字化思政教育平台') || !studentPage.includes('人生模拟拍卖平台')) {
-      throw new Error('student school branding missing');
-    }
-    if (!studentPage.includes('人生总工程师')) throw new Error('homepage module subtitle missing');
-    if (!studentPage.includes('id="studentNo"')) throw new Error('student page missing student number input');
-    if (!studentPage.includes('/gait-theme.css') || !studentPage.includes('/gait-campus-day.css')) throw new Error('student theme assets missing');
+    assertIncludesAll(studentPage, [
+      '广安理工学院', '数字化思政教育平台', '马克思主义学院', '人生模拟拍卖平台', '人生总工程师',
+      '梦想从学习开始 · 事业靠本领成就', '川渝理工名校', '名校支援 · 名师担纲 · 名企合作',
+      '不一样的广安理工 · 成就不一样的未来', '立德树人', '小而精 · 高起点', '应用型 · 理工类',
+      'id="studentNo"', '/gait-logo.css', '/gait-campus-day.css', '/gait-library-hall.css', '/gait-theme.css'
+    ], 'student branded UI');
 
     const logoCss = await assertHttp(url, '/gait-logo.css', 'data:image/webp;base64');
     const dayCss = await assertHttp(url, '/gait-campus-day.css', 'data:image/webp;base64');
+    const nightCss = await assertHttp(url, '/gait-campus-night.css', 'data:image/webp;base64');
     const libraryCss = await assertHttp(url, '/gait-library-hall.css', 'data:image/webp;base64');
     const themeCss = await assertHttp(url, '/gait-theme.css', '--gait-magenta:#8115a5');
-    if (!themeCss.includes('--gait-violet:#3c2e90') || !themeCss.includes('body.gait-student') || !themeCss.includes('body.gait-teacher')) {
-      throw new Error('Guangan color/background theme incomplete');
-    }
-    if (!logoCss.includes('--gait-logo') || !dayCss.includes('--gait-campus-day') || !libraryCss.includes('--gait-library-hall')) {
+    assertIncludesAll(themeCss, [
+      '--gait-violet:#3c2e90', '--gait-blue:#6887ff',
+      'body.gait-student{--gait-scene:var(--gait-campus-day)}',
+      'body.gait-student:has(#join.hidden){--gait-scene:var(--gait-library-hall)}',
+      'body.gait-teacher{--gait-scene:var(--gait-campus-night)}',
+      'body.gait-teacher:has(#control:not(.hidden)){--gait-scene:var(--gait-library-hall)}'
+    ], 'Guangan color/background theme');
+    if (!logoCss.includes('--gait-logo') || !dayCss.includes('--gait-campus-day') ||
+        !nightCss.includes('--gait-campus-night') || !libraryCss.includes('--gait-library-hall')) {
       throw new Error('school photo CSS variables missing');
     }
 
@@ -74,11 +86,12 @@ async function runSmokeTest() {
       throw new Error('student join defaults missing');
     }
     const teacherPage = await assertHttp(url, '/teacher.html', '教师中心');
-    if (!teacherPage.includes('广安理工学院') || !teacherPage.includes('马克思主义学院') || !teacherPage.includes('人生模拟拍卖平台')) {
-      throw new Error('teacher school branding missing');
-    }
-    if (!teacherPage.includes('/gait-campus-night.css') || !teacherPage.includes('/gait-theme.css')) throw new Error('teacher theme assets missing');
-    if (!teacherPage.includes('id="studentRoster"')) throw new Error('teacher page missing student roster');
+    assertIncludesAll(teacherPage, [
+      '广安理工学院', '数字化思政教育平台', '马克思主义学院', '人生模拟拍卖平台',
+      '梦想从学习开始 · 事业靠本领成就', '川渝理工名校', '名校支援 · 名师担纲 · 名企合作',
+      '不一样的广安理工 · 成就不一样的未来', '立德树人',
+      '/gait-logo.css', '/gait-campus-night.css', '/gait-library-hall.css', '/gait-theme.css', 'id="studentRoster"'
+    ], 'teacher branded UI');
     const teacherJs = await assertHttp(url, '/teacher.js', 'priceDrafts');
     if (!teacherJs.includes('basePrice:priceFor(index)') || !teacherJs.includes('留空默认100')) {
       throw new Error('teacher custom starting price UI missing');
@@ -155,7 +168,7 @@ async function runSmokeTest() {
     const deleted = await pool.query('SELECT 1 FROM classrooms WHERE code=$1', [code]);
     if (deleted.rowCount) throw new Error('admin report deletion did not remove classroom');
     code = null;
-    console.log('SMOKE_TEST_PASS gaitBrand/themePhotos/defaults/customBase/uniform350/roster/archive/teacherPin/adminDelete');
+    console.log('SMOKE_TEST_PASS gaitBrand/themePhotos/defaults/customBase/uniform350/roster/exchange/archive/teacherPin/adminDelete');
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
