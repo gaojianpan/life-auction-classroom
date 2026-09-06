@@ -50,9 +50,11 @@ async function runSmokeTest() {
   let buyerState = null;
   try {
     await assertHttp(url, '/healthz', 'ok');
-    const studentPage = await assertHttp(url, '/', '人生系统装配厂');
+    const studentPage = await assertHttp(url, '/', '你会如何配置自己的一生？');
+    if (!studentPage.includes('人生总工程师')) throw new Error('homepage subtitle not updated');
     if (!studentPage.includes('id="studentNo"')) throw new Error('student page missing student number input');
-    await assertHttp(url, '/teacher.html', '教师中心');
+    const teacherPage = await assertHttp(url, '/teacher.html', '教师中心');
+    if (!teacherPage.includes('id="studentRoster"')) throw new Error('teacher page missing student roster');
 
     teacher = await connect(url);
     seller = await connect(url);
@@ -77,15 +79,22 @@ async function runSmokeTest() {
     await waitFor(() => sellerState?.students?.some(x => x.studentNo === 'TEST20260001'));
     await waitFor(() => buyerState?.students?.some(x => x.studentNo === 'TEST20260002'));
 
-    await emitAck(teacher, 'startItem', { index: 0, seconds: 30 });
-    await emitAck(seller, 'bid', { amount: 100, customText: '' });
-    await waitFor(() => sellerState?.currentAuction?.bids?.some(x => x.studentNo === 'TEST20260001'));
+    await emitAck(teacher, 'startItem', { index: 2, seconds: 30 });
+    await emitAck(seller, 'bid', { amount: 350, customText: '' });
+    await emitAck(buyer, 'bid', { amount: 350, customText: '' });
+    await waitFor(() => sellerState?.currentAuction?.cutoff === 350 && sellerState.currentAuction.bids.filter(x => x.winning).length === 2);
     await emitAck(teacher, 'closeAuction', {});
 
     const sellerItem = await waitFor(() => {
       const me = sellerState?.students?.find(x => x.studentNo === 'TEST20260001');
-      return me?.inventory?.[0] || null;
+      return me?.inventory?.find(x => x.itemId === 3 && x.paid === 350) || null;
     });
+    await waitFor(() => {
+      const me = buyerState?.students?.find(x => x.studentNo === 'TEST20260002');
+      return me?.inventory?.some(x => x.itemId === 3 && x.paid === 350) && me.coins === 650;
+    });
+    const sellerAfter = sellerState.students.find(x => x.studentNo === 'TEST20260001');
+    if (sellerAfter.coins !== 650) throw new Error('uniform clearing price not charged to seller');
 
     await emitAck(teacher, 'startExchange', { seconds: 120 });
     await emitAck(seller, 'listItem', { copyId: sellerItem.copyId, price: 50 });
@@ -102,12 +111,12 @@ async function runSmokeTest() {
     await emitAck(teacher, 'endClassroom', {});
 
     const check = await pool.query('SELECT state FROM classrooms WHERE code=$1', [code]);
-    if (!check.rowCount || check.rows[0].state?.mode !== 'ended') {
-      throw new Error('archive persistence verification failed');
-    }
+    if (!check.rowCount || check.rows[0].state?.mode !== 'ended') throw new Error('archive persistence verification failed');
+    const round = check.rows[0].state?.history?.find(x => x.itemId === 3);
+    if (!round || round.clearingPrice !== 350 || round.winners?.length !== 2) throw new Error('uniform-price history persistence failed');
 
     await pool.query('DELETE FROM classrooms WHERE code=$1', [code]);
-    console.log(`SMOKE_TEST_PASS code=${code} http/studentNo/socket/create/join/bid/settle/exchange/archive/delete`);
+    console.log(`SMOKE_TEST_PASS code=${code} homepage/renames/studentNo/uniform350/multiBuyer/roster/exchange/archive/delete`);
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
