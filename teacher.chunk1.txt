@@ -49,7 +49,7 @@ function startExchange(){socket.emit("startExchange",{seconds:60},r=>{if(!r.ok)a
 function reflection(){socket.emit("startReflection",{},r=>{if(!r.ok)alert(r.error||"操作失败")})}
 function endClassroom(){
   if(!confirm("结束后学生不能再加入或操作，但历史统计会永久保留。确定归档？"))return;
-  socket.emit("endClassroom",{},r=>{if(!r.ok)alert(r.error||"归档失败");else alert("课堂已归档，可在“历史统计”中查看。滞")})
+  socket.emit("endClassroom",{},r=>{if(!r.ok)alert(r.error||"归档失败");else alert("课堂已归档，可在“历史统计”中查看。")})
 }
 
 function historyAuth(){
