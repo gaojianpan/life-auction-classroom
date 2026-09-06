@@ -66,6 +66,7 @@ async function runSmokeTest() {
     if (!teacherJs.includes('deleteReport') || !teacherJs.includes('deleteClassroom')) {
       throw new Error('teacher report delete control missing');
     }
+    if (!teacherJs.includes('教师口令')) throw new Error('teacher report PIN display missing');
 
     teacher = await connect(url);
     seller = await connect(url);
@@ -128,11 +129,13 @@ async function runSmokeTest() {
     if (!round || round.clearingPrice !== 350 || round.winners?.length !== 2) throw new Error('uniform-price history persistence failed');
 
     await emitAck(teacher, 'adminAuth', { pin: adminPin });
+    const report = await emitAck(teacher, 'getClassroomReport', { code });
+    if (report.report?.teacherPin !== 'smoke-teacher-pin') throw new Error('teacher PIN recovery failed');
     await emitAck(teacher, 'deleteClassroom', { code });
     const deleted = await pool.query('SELECT 1 FROM classrooms WHERE code=$1', [code]);
     if (deleted.rowCount) throw new Error('admin report deletion did not remove classroom');
     code = null;
-    console.log('SMOKE_TEST_PASS defaults/localStorage/customBase275/uniform350/roster/exchange/archive/adminDelete');
+    console.log('SMOKE_TEST_PASS defaults/customBase/uniform350/roster/archive/teacherPin/adminDelete');
   } catch (err) {
     if (code) {
       try { await pool.query('DELETE FROM classrooms WHERE code=$1', [code]); } catch (_) {}
