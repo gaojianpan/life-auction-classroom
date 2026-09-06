@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Assemble server
+        run: node assemble.js
+      - name: Install dependencies
+        run: npm install
+      - name: Syntax checks
+        run: |
+          node --check server.js
+          node --check db.js
+          node --check items.js
+          node --check bootstrap.js
+          node --check smoke.js
+          node --check public/student.js
+          node --check public/teacher.js
