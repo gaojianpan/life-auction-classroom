@@ -22,8 +22,13 @@
     try {
       const room = await getRoom(code);
       if (!room) return cb?.({ok:false,error:"课堂码不存在"});
-      if (!verifyPin(cleanText(pin,20), room.teacherPinHash))
+      pin = cleanText(pin,20);
+      if (!verifyPin(pin, room.teacherPinHash))
         return cb?.({ok:false,error:"课堂教师口令错误"});
+      if (!room.state.teacherPinEnc) {
+        room.state.teacherPinEnc = encryptTeacherPin(pin);
+        await queuePersist(room);
+      }
       socket.data.teacherCode = room.code;
       socket.join(roomChannel(room.code));
       cb?.({ok:true,code:room.code,title:room.title,state:snapshot(room)});
