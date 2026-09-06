@@ -1,0 +1,110 @@
+stat.sold += 1;
+      stat.total += Number(w.amount)||0;
+      stat.max = Math.max(stat.max, Number(w.amount)||0);
+      if (w.customText) stat.customTexts.push(w.customText);
+    }
+  }
+  const items = [...itemMap.values()].map(x=>({
+    ...x,
+    avg: x.sold ? Math.round(x.total/x.sold) : 0
+  })).sort((a,b)=>b.avg-a.avg || b.sold-a.sold || a.itemId-b.itemId);
+
+  const students = Object.values(roomState.students || {});
+  const totalSold = items.reduce((a,x)=>a+x.sold,0);
+  const avgRemainingCoins = students.length
+    ? Math.round(students.reduce((a,s)=>a+(Number(s.coins)||0),0)/students.length)
+    : 0;
+
+  return {
+    code:meta.code,
+    title:meta.title || roomState.title,
+    createdAt:meta.createdAt,
+    endedAt:roomState.endedAt || meta.endedAt || null,
+    status:roomState.mode,
+    participants:students.length,
+    totalSold,
+    avgRemainingCoins,
+    itemStats:items,
+    topItems:items.filter(x=>x.sold>0).slice(0,5),
+    customTexts:items.find(x=>x.itemId===15)?.customTexts || []
+  };
+}
+
+async function historyList(limit=50) {
+  const r = await pool.query(
+    "SELECT code,title,state,created_at,ended_at FROM classrooms ORDER BY created_at DESC LIMIT $1",
+    [Math.max(1, Math.min(200, Number(limit)||50))]
+  );
+  const reports = r.rows.map(row => {
+    const st = typeof row.state === "string" ? JSON.parse(row.state) : row.state;
+    return buildReport(st, {
+      code:row.code,title:row.title,createdAt:row.created_at,endedAt:row.ended_at
+    });
+  });
+  const rows = reports.map(report => ({
+    code:report.code,title:report.title,createdAt:report.createdAt,endedAt:report.endedAt,
+    status:report.status,participants:report.participants,totalSold:report.totalSold,
+    avgRemainingCoins:report.avgRemainingCoins,
+    topItem:report.topItems[0] || null
+  }));
+
+  const aggregateMap = new Map(ITEMS.map(x=>[x.id,{
+    itemId:x.id,title:x.title,icon:x.icon,sold:0,total:0,max:0
+  }]));
+  for (const report of reports) {
+    for (const st of report.itemStats) {
+      const a = aggregateMap.get(st.itemId);
+      if (!a) continue;
+      a.sold += st.sold;
+      a.total += st.total;
+      a.max = Math.max(a.max, st.max);
+    }
+  }
+  const overallItems = [...aggregateMap.values()].map(x=>({
+    ...x, avg:x.sold?Math.round(x.total/x.sold):0
+  })).filter(x=>x.sold>0).sort((a,b)=>b.avg-a.avg || b.sold-a.sold);
+
+  return {
+    rows,
+    aggregate:{
+      classrooms:reports.length,
+      archived:reports.filter(x=>x.status==="ended").length,
+      participants:reports.reduce((a,x)=>a+x.participants,0),
+      totalSold:reports.reduce((a,x)=>a+x.totalSold,0),
+      topItems:overallItems.slice(0,5)
+    }
+  };
+}
+
+setInterval(async ()=>{
+  for (const room of rooms.values()) {
+    try { await reconcile(room); } catch (e) { console.error("reconcile", room.code, e); }
+  }
+}, 250);
+
+io.on("connection", (socket) => {
+
+  socket.on("adminAuth", ({pin}, cb) => {
+    const ok = crypto.timingSafeEqual(
+      Buffer.from(crypto.createHash("sha256").update(String(pin||"")).digest("hex")),
+      Buffer.from(crypto.createHash("sha256").update(String(ADMIN_PIN)).digest("hex"))
+    );
+    if (!ok) return cb?.({ok:false,error:"管理员口令错误"});
+    socket.data.admin = true;
+    cb?.({ok:true});
+  });
+
+  socket.on("createClassroom", async ({adminPin,title,teacherPin}, cb) => {
+    try {
+      const adminOk = crypto.timingSafeEqual(
+        Buffer.from(crypto.createHash("sha256").update(String(adminPin||"")).digest("hex")),
+        Buffer.from(crypto.createHash("sha256").update(String(ADMIN_PIN)).digest("hex"))
+      );
+      if (!adminOk) return cb?.({ok:false,error:"管理员口令错误"});
+      title = cleanText(title,80);
+      teacherPin = cleanText(teacherPin,20);
+      if (!title) return cb?.({ok:false,error:"请输入课堂名称"});
+      if (teacherPin.length < 4) return cb?.({ok:false,error:"课堂教师口令至少4位"});
+      const code = await uniqueCode();
+      const state = newState(title);
+      
