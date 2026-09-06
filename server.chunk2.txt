@@ -58,14 +58,16 @@ function emitRoom(room) {
   io.to(roomChannel(room.code)).emit("roomState", snapshot(room));
 }
 
-async function startItem(room, index, seconds=12) {
+async function startItem(room, index, seconds=12, basePrice=100) {
   if (room.state.mode === "ended") throw new Error("课堂已归档");
   index = Number(index);
   if (index < 0 || index >= ITEMS.length) throw new Error("拍卖品不存在");
   if (room.state.currentAuction) await closeAuction(room);
+  basePrice = Math.floor(Number(basePrice));
+  if (!Number.isFinite(basePrice) || basePrice < 0 || basePrice > 1000) basePrice = 100;
   room.state.mode = "auction";
   room.state.currentIndex = index;
-  room.state.currentAuction = { item: ITEMS[index], bids: {} };
+  room.state.currentAuction = { item: {...ITEMS[index], base:basePrice}, bids: {} };
   room.state.timerEnd = Date.now() + Math.max(5, Math.min(120, Number(seconds)||12))*1000;
   await queuePersist(room);
   emitRoom(room);
