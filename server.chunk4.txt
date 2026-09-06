@@ -1,0 +1,106 @@
+      const hashed = hashPin(teacherPin);
+      const r = await pool.query(
+        `INSERT INTO classrooms(code,title,teacher_pin_hash,state)
+         VALUES($1,$2,$3,$4::jsonb)
+         RETURNING id,created_at`,
+        [code,title,hashed,JSON.stringify(state)]
+      );
+      const room = {
+        id:r.rows[0].id, code, title, teacherPinHash:hashed, state,
+        persistChain:Promise.resolve()
+      };
+      rooms.set(code, room);
+      socket.data.teacherCode = code;
+      socket.join(roomChannel(code));
+      cb?.({ok:true,code,title,state:snapshot(room)});
+    } catch (e) {
+      console.error(e); cb?.({ok:false,error:"创建课堂失败"});
+    }
+  });
+
+  socket.on("openTeacherClassroom", async ({code,pin}, cb) => {
+    try {
+      const room = await getRoom(code);
+      if (!room) return cb?.({ok:false,error:"课堂码不存在"});
+      if (!verifyPin(cleanText(pin,20), room.teacherPinHash))
+        return cb?.({ok:false,error:"课堂教师口令错误"});
+      socket.data.teacherCode = room.code;
+      socket.join(roomChannel(room.code));
+      cb?.({ok:true,code:room.code,title:room.title,state:snapshot(room)});
+      socket.emit("roomState", snapshot(room));
+    } catch {
+      cb?.({ok:false,error:"进入课堂失败"});
+    }
+  });
+
+  socket.on("joinClassroom", async ({code,name,clientKey}, cb) => {
+    try {
+      const room = await getRoom(code);
+      if (!room) return cb?.({ok:false,error:"课堂码不存在"});
+      if (room.state.mode === "ended") return cb?.({ok:false,error:"该课堂已结束归档"});
+      name = cleanText(name,12);
+      clientKey = cleanText(clientKey,80);
+      if (!name) return cb?.({ok:false,error:"请输入课堂昵称"});
+      if (!clientKey) return cb?.({ok:false,error:"浏览器身份生成失败，请刷新重试"});
+
+      let s = Object.values(room.state.students).find(x=>x.clientKey===clientKey);
+      if (!s) {
+        s = {
+          id:id(), clientKey, name, coins:1000, inventory:[],
+          connected:true, joinedAt:Date.now()
+        };
+        room.state.students[s.id] = s;
+      } else {
+        s.name = name; s.connected = true;
+      }
+      socket.data.studentId = s.id;
+      socket.data.studentCode = room.code;
+      socket.join(roomChannel(room.code));
+      await queuePersist(room);
+      cb?.({ok:true,studentId:s.id,code:room.code,title:room.title});
+      emitRoom(room);
+    } catch (e) {
+      console.error(e); cb?.({ok:false,error:"加入课堂失败"});
+    }
+  });
+
+  socket.on("startItem", async ({index,seconds}, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      await startItem(room,index,seconds);
+      cb?.({ok:true});
+    } catch(e){ cb?.({ok:false,error:e.message||"操作失败"}); }
+  });
+
+  socket.on("nextItem", async ({seconds}, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      if (room.state.currentAuction) await closeAuction(room);
+      const next = room.state.currentIndex + 1;
+      if (next >= ITEMS.length) return cb?.({ok:false,error:"15件拍卖品已全部完成"});
+      await startItem(room,next,seconds);
+      cb?.({ok:true});
+    } catch(e){ cb?.({ok:false,error:e.message||"操作失败"}); }
+  });
+
+  socket.on("closeAuction", async (_, cb) => {
+    try {
+      const room = await getRoom(socket.data.teacherCode);
+      if (!room) return cb?.({ok:false});
+      await closeAuction(room); cb?.({ok:true});
+    } catch { cb?.({ok:false,error:"操作失败"}); }
+  });
+
+  socket.on("bid", async ({amount,customText}, cb) => {
+    try {
+      const room = await getRoom(socket.data.studentCode);
+      const sid = socket.data.studentId;
+      if (!room || !sid) return cb?.({ok:false,error:"请重新加入课堂"});
+      const s = room.state.students[sid];
+      const a = room.state.currentAuction;
+      if (!s || !a || room.state.mode !== "auction")
+        return cb?.({ok:false,error:"当前不能出价"});
+      amount = Math.floor(Number(amount)/50)*50;
+      if (!Number.isFinite(amount) || 
